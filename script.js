@@ -74,16 +74,19 @@ function applyTheme() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // If using Three.js, mark body so CSS hides fallback envelope immediately
+  if (USE_THREE) document.body.classList.add('three-active');
+
   await loadConfig();
   seedText();
   initParticles();
   startCountdown();
 
   const fallbackEnv = document.getElementById('fallback-envelope');
-  fallbackEnv.classList.remove('hidden');
+  // Fallback is visible by default; hide it only if Three.js takes over
+  if (USE_THREE) fallbackEnv.classList.add('hidden');
 
   if (USE_THREE) {
-    fallbackEnv.classList.add('hidden');
     initThree();
     initScroll();
     console.log('🚀 Three.js envelope');

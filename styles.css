@@ -531,5 +531,7 @@ body.envelope-active #canvas-container {
   50% { opacity: 0.9; }
 }
 
-/* Hide fallback by default — JS toggles this */
+/* Hide fallback only when Three.js is active */
+body.three-active #fallback-envelope { display: none; }
+
 .fallback-envelope.hidden { display: none; }
