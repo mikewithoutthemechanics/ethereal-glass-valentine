@@ -1,30 +1,41 @@
 /**
- * Ethereal Glass Valentine — Interactive Engine
- * A romantic webapp experience with glassmorphic UI, particle effects,
- * envelope opening sequence, typewriter animations, and playful button dynamics.
+ * Ethereal Glass Valentine — Interactive Engine (3D Envelope + GSAP + Lenis)
+ * Romantic webapp with Three.js 3D envelope, scroll-triggered bento cards,
+ * particle system, and letter auto-typewriter.
  */
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Globals
+// ═══════════════════════════════════════════════════════════════════════════
+
+let CONFIG;
+let scene, camera, renderer, envelopeGroup, letterMesh;
+let isEnvelopeOpen = false;
+let raycaster, mouse;
+const clock = new THREE.Clock();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Config Loading
 // ═══════════════════════════════════════════════════════════════════════════
 
-let CONFIG;
 async function loadConfig() {
   try {
     const resp = await fetch('config.json');
     CONFIG = await resp.json();
   } catch (e) {
-    console.error('Could not load config.json — using fallback defaults');
     CONFIG = {
       herName: 'Candice',
       yourName: 'Michael',
       tagline: 'A digital love letter, crafted with glass and light.',
-      invitationLine: 'Will you go on a secret date with me?',
+      invitationLine: 'To the one who came out of nowhere',
+      secretDateLine: 'Will you go on a secret date with me?',
       mainMessage: 'From the moment our eyes first met, my world has had a new hue. Every day with you feels like stepping into a dream painted in softer colors, warmer light. This is a small piece of my heart, rendered in glass and light — because you deserve something as beautiful as the love you\'ve given me.',
       reasons: [
         'Your laugh is my favorite sound',
         'You see beauty in the smallest things',
-        'Your heart is the gentlest place I know'
+        'Your heart is the gentlest place I know',
+        'You believe in me even when I doubt',
+        'Our quiet mornings are my sanctuary'
       ],
       memoryPhotos: [],
       countdownDate: '2026-02-14T00:00:00',
@@ -55,68 +66,368 @@ function applyTheme() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Init — DOM Content Loaded
+// Three.js Envelope Scene
 // ═══════════════════════════════════════════════════════════════════════════
 
-document.addEventListener('DOMContentLoaded', async () => {
-  await loadConfig();
-  seedText();
-  initParticles();
-  initEnvelope();
-  startCountdown();
-});
+function initThree() {
+  const container = document.getElementById('canvas-container');
+  scene = new THREE.Scene();
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Static Text Injection
-// ═══════════════════════════════════════════════════════════════════════════
+  // Camera — positioned for hero view
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera.position.set(0, 0, 8);
 
-function seedText() {
-  document.getElementById('herName').textContent = CONFIG.herName;
-  document.getElementById('yourName').textContent = CONFIG.yourName;
-  document.getElementById('yourNameInLetter').textContent = CONFIG.yourName;
-  document.getElementById('yourNameSign').textContent = CONFIG.yourName;
-  document.getElementById('footerHerName').textContent = CONFIG.herName;
-  document.getElementById('tagline').textContent = CONFIG.tagline;
-  document.getElementById('subText').textContent = CONFIG.tagline;
+  // Renderer (alpha: true to blend with CSS background)
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  container.appendChild(renderer.domElement);
+
+  // Lights — soft romantic
+  const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(ambient);
+
+  const spot = new THREE.SpotLight(0xffffff, 0.8);
+  spot.position.set(5, 8, 6);
+  spot.angle = Math.PI / 6;
+  spot.penumbra = 0.3;
+  spot.castShadow = true;
+  spot.shadow.bias = -0.0001;
+  scene.add(spot);
+
+  const fill = new THREE.PointLight(0xffb6b9, 0.3, 20);
+  fill.position.set(-3, 2, 4);
+  scene.add(fill);
+
+  // Build 3D envelope
+  buildEnvelope();
+
+  // Raycaster for click detection
+  raycaster = new THREE.Raycaster();
+  mouse = new THREE.Vector2();
+
+  // Event listeners
+  window.addEventListener('resize', onWindowResize);
+  window.addEventListener('click', onMouseClick);
+  window.addEventListener('mousemove', onMouseMove);
+
+  // Start animation loop
+  animate();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Envelope Opening Sequence
+// Envelope Construction
 // ═══════════════════════════════════════════════════════════════════════════
 
-function initEnvelope() {
-  const envelopeContainer = document.getElementById('envelope');
-  const envelopeBody = envelopeContainer.querySelector('.envelope-body');
-  const responseSection = document.getElementById('responseSection');
-  const invitationText = document.getElementById('invitationText');
+function buildEnvelope() {
+  envelopeGroup = new THREE.Group();
+  scene.add(envelopeGroup);
 
-  envelopeContainer.addEventListener('click', async () => {
-    if (envelopeContainer.classList.contains('opened')) return;
+  // Materials
+  const envelopeMat = new THREE.MeshStandardMaterial({
+    color: 0xfff8f0,
+    roughness: 0.6,
+    metalness: 0.05,
+    side: THREE.DoubleSide
+  });
 
-    // Lock envelope
-    envelopeContainer.classList.add('opened');
-    envelopeBody.classList.add('open');
+  const flapMat = new THREE.MeshStandardMaterial({
+    color: 0xfff0e6,
+    roughness: 0.5,
+    metalness: 0.05,
+    side: THREE.DoubleSide
+  });
 
-    // After letter emerges, type the invitation
-    await sleep(1200);
-    typeWriter(invitationText, CONFIG.invitationLine, 28);
+  const sealMat = new THREE.MeshStandardMaterial({
+    color: 0xff8fa3,
+    roughness: 0.4,
+    metalness: 0.1,
+    emissive: 0xff8fa3,
+    emissiveIntensity: 0.2
+  });
 
-    // After typewriter finishes, reveal buttons
-    setTimeout(() => {
-      responseSection.classList.remove('hidden');
-      const heroCard = responseSection.querySelector('.glass-card');
-      heroCard.classList.add('fade-in');
-      initButtons(); // attach Yes/No listeners
-    }, 800 + CONFIG.invitationLine.length * 28 + 300);
+  // Envelope base (vertical rectangle standing up)
+  const baseGeo = new THREE.BoxGeometry(2.2, 0.08, 1.6);
+  const base = new THREE.Mesh(baseGeo, envelopeMat);
+  base.position.y = 0;
+  base.castShadow = true;
+  base.receiveShadow = true;
+  envelopeGroup.add(base);
+
+  // Front triangular pocket (left + right triangles form a pocket)
+  // Left triangle
+  const triGeo = new THREE.BufferGeometry();
+  triGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+    0, -0.8, -0.8,    // top inner
+    -1.1, -0.8, 0.8,  // bottom left outer
+    1.1, -0.8, 0.8    // bottom right outer
+  ], 3));
+  triGeo.setAttribute('uv', new THREE.Float32BufferAttribute([0.5,1, 0,0, 1,0], 2));
+  triGeo.computeVertexNormals();
+  const frontPocket = new THREE.Mesh(triGeo, flapMat);
+  frontPocket.position.y = -0.04;
+  frontPocket.rotation.x = -Math.PI / 2;
+  envelopeGroup.add(frontPocket);
+
+  // Top flap (opens upward)
+  const topFlapGeo = new THREE.ConeGeometry(1.15, 0.02, 4, 1, true); // pyramid tip
+  const topFlap = new THREE.Mesh(topFlapGeo, flapMat);
+  topFlap.position.set(0, 0.02, -0.5);
+  topFlap.rotation.x = Math.PI;
+  topFlap.name = 'topFlap';
+  envelopeGroup.add(topFlap);
+
+  // Bottom flap (opens downward)
+  const bottomFlapGeo = new THREE.ConeGeometry(1.15, 0.02, 4, 1, true);
+  const bottomFlap = new THREE.Mesh(bottomFlapGeo, flapMat);
+  bottomFlap.position.set(0, -0.02, 0.5);
+  bottomFlap.rotation.x = 0;
+  bottomFlap.name = 'bottomFlap';
+  envelopeGroup.add(bottomFlap);
+
+  // Letter inside (thin plane with text texture)
+  const letterGeo = new THREE.PlaneGeometry(1.9, 1.3);
+  // We'll use a canvas texture for the typewriter text
+  const letterTex = createLetterTexture('');
+  const letterMat = new THREE.MeshBasicMaterial({
+    map: letterTex,
+    transparent: true,
+    opacity: 0.95
+  });
+  letterMesh = new THREE.Mesh(letterGeo, letterMat);
+  letterMesh.position.set(0, -0.6, 0.05);
+  letterMesh.rotation.x = Math.PI / 2;
+  envelopeGroup.add(letterMesh);
+  letterMesh.visible = false;
+
+  // Text under envelope — invitation line (3D text using sprite)
+  const invText = createTextSprite(CONFIG.invitationLine, 0.7);
+  invText.position.set(0, -1.8, 0);
+  envelopeGroup.add(invText);
+
+  // Sealing wax heart
+  const heartShape = new THREE.Shape();
+  heartShape.moveTo(0, 0.25);
+  heartShape.bezierCurveTo(0, 0.35, 0.15, 0.4, 0.2, 0.3);
+  heartShape.bezierCurveTo(0.25, 0.2, 0.25, 0.1, 0.2, 0);
+  heartShape.bezierCurveTo(0.15, -0.1, 0, -0.05, 0, 0.05);
+  heartShape.bezierCurveTo(0, -0.05, -0.15, -0.1, -0.2, 0);
+  heartShape.bezierCurveTo(-0.25, 0.1, -0.25, 0.2, -0.2, 0.3);
+  heartShape.bezierCurveTo(-0.15, 0.4, 0, 0.35, 0, 0.25);
+
+  const heartGeo = new THREE.ShapeGeometry(heartShape);
+  const heartMesh = new THREE.Mesh(heartGeo, sealMat);
+  heartMesh.position.set(0, 0.12, -0.76);
+  heartMesh.scale.set(0.6, 0.6, 0.6);
+  envelopeGroup.add(heartMesh);
+
+  // Initial hover animation — gentle float + slow rotation
+  gsap.to(envelopeGroup.position, {
+    y: 0.1,
+    duration: 2.5,
+    repeat: -1,
+    yoyo: true,
+    ease: 'sine.inOut'
+  });
+
+  gsap.to(envelopeGroup.rotation, {
+    y: 0.03,
+    duration: 5,
+    repeat: -1,
+    yoyo: true,
+    ease: 'sine.inOut'
   });
 }
 
-function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
+// ═══════════════════════════════════════════════════════════════════════════
+// Helpers: Text sprite & letter texture canvas
+// ═══════════════════════════════════════════════════════════════════════════
+
+function createTextSprite(text, scale = 0.5) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = 1024;
+  canvas.height = 256;
+
+  ctx.fillStyle = 'rgba(0,0,0,0)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.font = 'bold 60px "Cormorant Garamond", Georgia, serif';
+  ctx.fillStyle = '#2d2d2d';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(4 * scale, 1 * scale, 1);
+  sprite.renderOrder = 999;
+  return sprite;
+}
+
+function createLetterTexture(text) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 768;
+  const ctx = canvas.getContext('2d');
+
+  // Paper background
+  ctx.fillStyle = '#fffef7';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Text (centered, serif)
+  ctx.font = '42px "Cormorant Garamond", Georgia, serif';
+  ctx.fillStyle = '#2d2d2d';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const words = text.split(' ');
+  let line = '';
+  let y = 200;
+  const lineHeight = 70;
+
+  for (let n = 0; n < words.length; n++) {
+    const test = line + words[n] + ' ';
+    if (ctx.measureText(test).width > canvas.width - 100 && n > 0) {
+      ctx.fillText(line, canvas.width / 2, y);
+      line = words[n] + ' ';
+      y += lineHeight;
+    } else {
+      line = test;
+    }
+  }
+  ctx.fillText(line, canvas.width / 2, y);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  tex.minFilter = THREE.LinearFilter;
+  return tex;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Button Dynamics — Growing Yes, Elusive No
+// Envelope Interaction
+// ═══════════════════════════════════════════════════════
+
+function onMouseMove(event) {
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  // Subtle parallax: rotate envelope slightly toward mouse
+  if (!isEnvelopeOpen) {
+    const targetRotY = mouse.x * 0.05;
+    const targetRotX = mouse.y * 0.03;
+    gsap.to(envelopeGroup.rotation, {
+      x: targetRotX,
+      y: targetRotY,
+      duration: 0.6,
+      ease: 'power2.out'
+    });
+  }
+}
+
+function onMouseClick(event) {
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(envelopeGroup.children, true);
+
+  if (intersects.length > 0 && !isEnvelopeOpen) {
+    openEnvelope();
+  }
+}
+
+async function openEnvelope() {
+  if (isEnvelopeOpen) return;
+  isEnvelopeOpen = true;
+  document.body.classList.add('envelope-active');
+
+  // Show letter mesh
+  letterMesh.visible = true;
+
+  // Animate flaps open with GSAP
+  const topFlap = envelopeGroup.getObjectByName('topFlap');
+  const bottomFlap = envelopeGroup.getObjectByName('bottomFlap');
+
+  gsap.to(topFlap.rotation, { x: -2.2, duration: 1.2, ease: 'power2.out' });
+  gsap.to(bottomFlap.rotation, { x: 2.2, duration: 1.2, ease: 'power2.out' });
+  gsap.to(envelopeGroup.position, { y: 0.15, duration: 1.2, ease: 'power2.out' });
+
+  // After flap opens, slide letter up and type text
+  await sleep(1100);
+  gsap.to(letterMesh.position, {
+    y: 0.3,
+    z: 0.2,
+    duration: 1.0,
+    ease: 'back.out(1.3)'
+  });
+
+  await sleep(400);
+  typeOnLetterTexture(CONFIG.invitationLine);
+
+  // Then reveal response buttons
+  setTimeout(() => {
+    document.getElementById('responseSection').classList.remove('hidden');
+    const card = document.querySelector('#responseSection .glass-card');
+    gsap.to(card, { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' });
+    initButtons();
+  }, CONFIG.invitationLine.length * 30 + 600);
+
+  // Hide paper text sprite
+  envelopeGroup.children.forEach(c => {
+    if (c.isSprite) gsap.to(c.scale, { x: 0, y: 0, duration: 0.5 });
+  });
+}
+
+// Typewriter directly onto the letter plane's canvas texture
+function typeOnLetterTexture(text) {
+  const canvas = letterMesh.material.map.image;
+  const ctx = canvas.getContext('2d');
+
+  // Clear with paper color
+  ctx.fillStyle = '#fffef7';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.font = '42px "Cormorant Garamond", Georgia, serif';
+  ctx.fillStyle = '#2d2d2d';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Type char by char
+  let i = 0;
+  const interval = setInterval(() => {
+    const sub = text.substring(0, i + 1);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#fffef7';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // wrap
+    const words = sub.split(' ');
+    let line = '';
+    let y = 200;
+    const lineHeight = 70;
+
+    for (let n = 0; n < words.length; n++) {
+      const test = line + words[n] + ' ';
+      if (ctx.measureText(test).width > canvas.width - 100 && n > 0) {
+        ctx.fillText(line, canvas.width / 2, y);
+        line = words[n] + ' ';
+        y += lineHeight;
+      } else {
+        line = test;
+      }
+    }
+    ctx.fillText(line, canvas.width / 2, y);
+
+    letterMesh.material.map.needsUpdate = true;
+    i++;
+    if (i >= text.length) clearInterval(interval);
+  }, 30);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Button Dynamics
 // ═══════════════════════════════════════════════════════════════════════════
 
 function initButtons() {
@@ -143,57 +454,49 @@ function initButtons() {
   yesBtn.addEventListener('click', () => {
     yesBtn.classList.add('jumping');
     setTimeout(() => yesBtn.classList.remove('jumping'), 400);
-
-    // Reveal hidden sections with a staggered entrance
     letterSection.classList.remove('hidden');
-    letterSection.classList.add('fade-in');
-    typeWriter(letterSection.querySelector('#letterText'), CONFIG.mainMessage);
+    gsap.to(letterSection, { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' });
+    const typeEl = document.getElementById('letterText');
+    simpleTypewriter(typeEl, CONFIG.mainMessage);
 
     setTimeout(() => {
       reasonsSection.classList.remove('hidden');
-      reasonsSection.classList.add('fade-in');
+      const reasonsCard = reasonsSection.querySelector('.bento-card');
+      gsap.to(reasonsCard, { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' });
       renderReasons();
     }, 800);
 
     setTimeout(() => {
       memoriesSection.classList.remove('hidden');
-      memoriesSection.classList.add('fade-in');
+      gsap.to(memoriesSection, { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' });
       renderGallery();
-    }, 1400);
+    }, 1600);
 
     setTimeout(() => {
       countdownSection.classList.remove('hidden');
-      countdownSection.classList.add('fade-in');
-    }, 2000);
+      const countdownCard = countdownSection.querySelector('.bento-card');
+      gsap.to(countdownCard, { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' });
+    }, 2200);
   });
 
   noBtn.addEventListener('click', () => {
     clickCount++;
-    // Make Yes button grow
     const currentSize = parseFloat(getComputedStyle(yesBtn).fontSize);
     yesBtn.style.fontSize = `${currentSize + 1.2}px`;
     yesBtn.style.padding = `${0.85 + clickCount * 0.15}rem ${2 + clickCount * 0.3}rem`;
-
-    // Change No button text to something sweetly desperate
     noBtn.textContent = noMessages[clickCount % noMessages.length];
-
-    // Nudge No away slightly (subtle drift)
     const driftX = Math.sin(clickCount) * 12;
     const driftY = Math.cos(clickCount) * -6;
     noBtn.style.transform = `translate(${driftX}px, ${driftY}px)`;
-
-    // Confetti burst after many clicks
-    if (clickCount > 6) {
-      tinyConfetti(noBtn);
-    }
+    if (clickCount > 6) tinyConfetti(noBtn);
   });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Typewriter Effect
+// Simple Typewriter (DOM)
 // ═══════════════════════════════════════════════════════════════════════════
 
-function typeWriter(el, text, speed = 28) {
+function simpleTypewriter(el, text, speed = 28) {
   el.textContent = '';
   let i = 0;
   const interval = setInterval(() => {
@@ -204,7 +507,7 @@ function typeWriter(el, text, speed = 28) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Reasons Grid
+// Render Helpers
 // ═══════════════════════════════════════════════════════════════════════════
 
 function renderReasons() {
@@ -215,31 +518,24 @@ function renderReasons() {
     div.className = 'reason-item';
     div.style.animationDelay = `${idx * 0.12}s`;
     div.classList.add('fade-in');
-    div.innerHTML = `
-      <span class="reason-icon">${hearts[idx % hearts.length]}</span>
-      <span>${reason}</span>
-    `;
+    div.innerHTML = `<span class="reason-icon">${hearts[idx % hearts.length]}</span><span>${reason}</span>`;
     grid.appendChild(div);
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Polaroid Gallery
-// ═══════════════════════════════════════════════════════════════════════════
-
 function renderGallery() {
   const gallery = document.getElementById('gallery');
+  const rotations = ['1deg', '-1deg', '0.5deg', '-0.5deg'];
   CONFIG.memoryPhotos.forEach((photo, idx) => {
     const figure = document.createElement('figure');
     figure.className = 'polaroid';
-    figure.style.animationDelay = `${idx * 0.15}s`;
+    figure.style.setProperty('--rotation', rotations[idx % rotations.length]);
     figure.classList.add('fade-in');
-    figure.innerHTML = `
-      <img src="assets/${photo.file}" alt="${photo.caption}"
-           onerror="this.style.display='none'">
-      <figcaption>${photo.caption}</figcaption>
-    `;
+    figure.innerHTML = `<img src="assets/${photo.file}" alt="${photo.caption}" onerror="this.style.display='none'"><figcaption>${photo.caption}</figcaption>`;
     gallery.appendChild(figure);
+
+    // GSAP stagger
+    setTimeout(() => figure.classList.add('visible'), idx * 150);
   });
 }
 
@@ -252,19 +548,16 @@ function startCountdown() {
   const timerEl = document.getElementById('timer');
 
   function update() {
-    const now = new Date().getTime();
+    const now = Date.now();
     const diff = target - now;
-
     if (diff <= 0) {
       timerEl.textContent = '💞 Forever starts now!';
       return;
     }
-
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hrs = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     const secs = Math.floor((diff % (1000 * 60)) / 1000);
-
     timerEl.textContent = `${days}d ${hrs}h ${mins}m ${secs}s`;
   }
 
@@ -273,17 +566,13 @@ function startCountdown() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Particle System — floating bokeh orbs
+// Particle System
 // ═══════════════════════════════════════════════════════════════════════════
 
 function initParticles() {
   const canvas = document.getElementById('particles');
   const ctx = canvas.getContext('2d');
-
-  function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
   resize();
   window.addEventListener('resize', resize);
 
@@ -304,61 +593,97 @@ function initParticles() {
 
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     particles.forEach(p => {
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
       ctx.fillStyle = `rgba(${p.hue}, ${p.alpha})`;
       ctx.fill();
-
-      p.x += p.speedX;
-      p.y += p.speedY;
-
+      p.x += p.speedX; p.y += p.speedY;
       if (p.x < 0 || p.x > canvas.width) p.speedX *= -1;
       if (p.y < 0 || p.y > canvas.height) p.speedY *= -1;
     });
   }
-
   function animate() { draw(); requestAnimationFrame(animate); }
   animate();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Little confetti burst (canvas in button)
+// Lenis Smooth Scroll + GSAP ScrollTrigger
+// ═══════════════════════════════════════════════════════════════════════════
+
+function initScroll() {
+  const lenis = new Lenis({
+    duration: 1.2,
+    easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+    direction: 'vertical',
+    gestureDirection: 'vertical',
+    smooth: true,
+    mouseMultiplier: 1,
+    smoothTouch: false,
+    touchMultiplier: 2,
+    infinite: false
+  });
+
+  function raf(time) {
+    lenis.raf(time);
+    requestAnimationFrame(raf);
+  }
+  requestAnimationFrame(raf);
+
+  // Wire GSAP ScrollTrigger
+  gsap.registerPlugin(ScrollTrigger);
+
+  // Glass cards & bento cards reveal on scroll
+  const cards = document.querySelectorAll('.glass-card, .bento-card');
+  cards.forEach(card => {
+    gsap.to(card, {
+      opacity: 1,
+      y: 0,
+      duration: 1,
+      ease: 'power3.out',
+      scrollTrigger: {
+        trigger: card,
+        start: 'top 85%',
+        toggleActions: 'play none none reverse'
+      }
+    });
+  });
+
+  // Polaroids staggered
+  gsap.utils.toArray('.polaroid').forEach((pic, i) => {
+    gsap.to(pic, {
+      opacity: 1,
+      y: 0,
+      rotation: parseFloat(getComputedStyle(pic).getPropertyValue('--rotation')) || 0,
+      duration: 1.2,
+      delay: i * 0.15,
+      ease: 'power2.out',
+      scrollTrigger: {
+        trigger: pic,
+        start: 'top 90%'
+      }
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Confetti Burst (canvas)
 // ═══════════════════════════════════════════════════════════════════════════
 
 function tinyConfetti(btn) {
   const rect = btn.getBoundingClientRect();
   const c = document.createElement('canvas');
-  c.style.position = 'fixed';
-  c.style.left = `${rect.left}px`;
-  c.style.top = `${rect.top}px`;
-  c.style.width = `${rect.width}px`;
-  c.style.height = `${rect.height}px`;
-  c.style.pointerEvents = 'none';
-  c.style.zIndex = '9999';
+  Object.assign(c.style, { position: 'fixed', left: rect.left + 'px', top: rect.top + 'px', width: rect.width + 'px', height: rect.height + 'px', pointerEvents: 'none', zIndex: 9999 });
   document.body.appendChild(c);
   const ctx = c.getContext('2d');
   const particles = [];
-
   for (let i = 0; i < 20; i++) {
-    particles.push({
-      x: c.width / 2,
-      y: c.height / 2,
-      vx: (Math.random() - 0.5) * 6,
-      vy: (Math.random() - 0.5) * 6,
-      color: `hsl(${Math.random() * 360}, 80%, 65%)`,
-      life: 1
-    });
+    particles.push({ x: c.width / 2, y: c.height / 2, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, color: `hsl(${Math.random() * 360}, 80%, 65%)`, life: 1 });
   }
-
   function render() {
     ctx.clearRect(0, 0, c.width, c.height);
     particles.forEach(p => {
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vy += 0.15;
-      p.life -= 0.02;
+      p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life -= 0.02;
       ctx.globalAlpha = p.life;
       ctx.fillStyle = p.color;
       ctx.fillRect(p.x, p.y, 4, 4);
@@ -370,7 +695,41 @@ function tinyConfetti(btn) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Debug
+// Utilities
 // ═══════════════════════════════════════════════════════════════════════════
 
-window.CONFIG = CONFIG;
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Bootstrap
+// ═══════════════════════════════════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadConfig();
+  seedText();
+  initParticles();
+  initThree();
+  initScroll();
+  startCountdown();
+});
+
+function seedText() {
+  document.getElementById('herName').textContent = CONFIG.herName;
+  document.getElementById('yourName').textContent = CONFIG.yourName;
+  document.getElementById('yourNameInLetter').textContent = CONFIG.yourName;
+  document.getElementById('yourNameSign').textContent = CONFIG.yourName;
+  document.getElementById('footerHerName').textContent = CONFIG.herName;
+  document.getElementById('tagline').textContent = CONFIG.tagline;
+  document.getElementById('subText').textContent = CONFIG.tagline;
+}

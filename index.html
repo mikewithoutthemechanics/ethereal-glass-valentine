@@ -4,86 +4,92 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>A Secret Invitation for Candice 💖</title>
+
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- Particle canvas for floating light orbs -->
-  <canvas id="particles"></canvas>
 
-  <!-- Ambient animated gradient background -->
-  <div class="ambient-bg"></div>
+  <!-- Three.js Container (3D envelope sits here) -->
+  <div id="canvas-container"></div>
 
-  <main class="container">
-    <!-- ✉️ Envelope Hero — click to open -->
-    <section class="hero-envelope-wrapper" id="heroSection">
-      <div class="envelope-container" id="envelope">
-        <!-- Envelope body -->
-        <div class="envelope-body">
-          <div class="envelope-flap top"></div>
-          <div class="envelope-flap bottom"></div>
-          <!-- Letter inside (hidden until open) -->
-          <div class="letter-inside" id="letterInside">
-            <div class="letter-paper">
-              <p class="invitation-text" id="invitationText"></p>
-              <p class="signature-inside">— <span id="yourNameInLetter">Michael</span></p>
+  <!-- Smooth scroll content wrapper -->
+  <div id="smooth-wrapper">
+    <div id="smooth-content">
+
+      <!-- Ambient background -->
+      <div class="ambient-bg"></div>
+
+      <!-- Floating particles -->
+      <canvas id="particles"></canvas>
+
+      <main class="container">
+        <!-- Hero / Response Buttons (appears after envelope opens) -->
+        <section class="response-section hidden" id="responseSection">
+          <div class="glass-card hero fade-in">
+            <p class="tagline" id="tagline"></p>
+            <h1 class="hero-title">
+              Will you be my Valentine, <span id="herName">Candice</span>?
+            </h1>
+            <div class="button-group">
+              <button id="yesBtn" class="btn btn-yes">Yes, absolutely! 💖</button>
+              <button id="noBtn" class="btn btn-no">No</button>
             </div>
+            <p class="sub-text" id="subText"></p>
           </div>
-        </div>
-        <!-- Sealing wax heart -->
-        <div class="seal" id="seal">💖</div>
-        <!-- Hover hint -->
-        <p class="tap-hint" id="tapHint">Tap the envelope to open...</p>
-      </div>
-    </section>
+        </section>
 
-    <!-- 💝 Response Buttons (hidden until letter opens) -->
-    <section class="response-section hidden" id="responseSection">
-      <div class="glass-card hero fade-in">
-        <p class="tagline" id="tagline"></p>
-        <h1 class="hero-title">
-          Will you be my Valentine, <span id="herName">Candice</span>?
-        </h1>
-        <div class="button-group">
-          <button id="yesBtn" class="btn btn-yes">Yes, absolutely! 💖</button>
-          <button id="noBtn" class="btn btn-no">No</button>
-        </div>
-        <p class="sub-text" id="subText"></p>
-      </div>
-    </section>
+        <!-- Full-page letter (scroll view) -->
+        <section id="loveLetter" class="glass-card letter bento-card hidden">
+          <h2 class="section-title">A Letter for You</h2>
+          <div class="typewriter" id="letterText"></div>
+          <p class="signature">— <span id="yourNameSign">Michael</span></p>
+        </section>
 
-    <!-- Love letter (revealed on Yes) -->
-    <section id="loveLetter" class="glass-card letter hidden">
-      <h2 class="section-title">A Letter for You</h2>
-      <div class="typewriter" id="letterText"></div>
-      <p class="signature">— <span id="yourNameSign">Michael</span></p>
-    </section>
+        <!-- Reasons grid — bento style -->
+        <section id="reasons" class="bento-grid hidden">
+          <div class="glass-card bento-card">
+            <h2 class="section-title">Why I Adore You</h2>
+            <div class="reasons-grid" id="reasonsGrid"></div>
+          </div>
+        </section>
 
-    <!-- Reasons I Love You -->
-    <section id="reasons" class="glass-card hidden">
-      <h2 class="section-title">Why I Adore You</h2>
-      <div class="reasons-grid" id="reasonsGrid"></div>
-    </section>
+        <!-- Polaroid memory gallery — parallax scroll -->
+        <section id="memories" class="glass-card hidden">
+          <h2 class="section-title">Our Precious Moments</h2>
+          <div class="polaroid-gallery" id="gallery"></div>
+        </section>
 
-    <!-- Memory timeline (Polaroids) -->
-    <section id="memories" class="glass-card hidden">
-      <h2 class="section-title">Our Precious Moments</h2>
-      <div class="polaroid-gallery" id="gallery"></div>
-    </section>
+        <!-- Countdown — bento card -->
+        <section id="countdown" class="bento-grid hidden">
+          <div class="glass-card bento-card">
+            <h2 class="section-title">Counting the Heartbeats</h2>
+            <div class="timer" id="timer">Loading...</div>
+            <p class="note">Until we celebrate together 🕰️</p>
+          </div>
+        </section>
+      </main>
 
-    <!-- Countdown -->
-    <section id="countdown" class="glass-card hidden">
-      <h2 class="section-title">Counting the Heartbeats</h2>
-      <div class="timer" id="timer">Loading...</div>
-      <p class="note">Until we celebrate together 🕰️</p>
-    </section>
-  </main>
+      <footer class="footer">
+        <p>Made with glass and light, for <span id="footerHerName">Candice</span>.</p>
+      </footer>
 
-  <footer class="footer">
-    <p>Made with glass and light, for <span id="footerHerName">Candice</span>.</p>
-  </footer>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- GSAP + ScrollTrigger -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <!-- Lenis smooth scroll -->
+  <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@2.0.0/bundled/lenis.min.js"></script>
 
   <script src="script.js"></script>
 </body>
