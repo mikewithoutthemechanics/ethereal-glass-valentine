@@ -1,3 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>A Secret Invitation for Candice 💖</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- Three.js Container (3D envelope) -->
+  <div id="canvas-container"></div>
+
+  <!-- Fallback CSS Envelope (shown if WebGL fails) -->
+  <div id="fallback-envelope" class="fallback-envelope">
+    <div class="fallback-envelope-body">
+      <div class="fallback-flap top"></div>
+      <div class="fallback-flap bottom"></div>
+      <div class="fallback-letter">
+        <p class="fallback-invitation" id="fallbackInvitation"></p>
+        <p class="fallback-signature">— <span id="fallbackYourName">Michael</span></p>
+      </div>
+    </div>
+    <div class="fallback-seal">💖</div>
+    <p class="fallback-hint" id="fallbackHint">Tap to open...</p>
+  </div>
+
   <!-- Smooth scroll content wrapper -->
   <div id="smooth-wrapper">
     <div id="smooth-content">
@@ -61,3 +95,26 @@
 
     </div>
   </div>
+
+  <!-- Audio controls -->
+  <audio id="ambient-audio" loop preload="auto" style="display:none">
+    <source src="assets/audio/ambient.mp3" type="audio/mpeg">
+  </audio>
+
+  <!-- Scripts -->
+  <!-- Three.js + Post-processing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+  <!-- GSAP + ScrollTrigger -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+  <!-- Lenis smooth scroll -->
+  <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@2.0.0/bundled/lenis.min.js"></script>
+
+  <script src="script.js"></script>
+</body>
+</html>
