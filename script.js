@@ -1,7 +1,20 @@
 /**
- * Ethereal Glass Valentine — Cinematic Edition
- * 3D envelope + post-processing bloom + ambient piano + Lenis smooth scroll + GSAP
+ * Ethereal Glass Valentine — Cinematic Edition (Mobile-First)
+ * 3D envelope with graceful CSS fallback for low-end / mobile WebGL issues
  */
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Device Detection
+// ═══════════════════════════════════════════════════════════════════════════
+
+const IS_MOBILE = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+const IS_LOW_END = IS_MOBILE || navigator.hardwareConcurrency <= 4;
+const USE_THREE = !IS_LOW_END && (() => {
+  try {
+    const canvas = document.createElement('canvas');
+    return !!(window.WebGLRenderingContext && (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+  } catch { return false; }
+})();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Globals
@@ -14,9 +27,12 @@ let isEnvelopeOpen = false;
 let raycaster, mouse;
 const clock = new THREE.Clock();
 
-// Audio context (lazy init on first interaction)
+// Audio
 let audioCtx, audioGain, ambientSource;
 let audioEnabled = true;
+
+// CSS fallback state
+let envelopeOpenedCSS = false;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Config Loading
@@ -33,19 +49,11 @@ async function loadConfig() {
       tagline: 'A digital love letter, crafted with glass and light.',
       invitationLine: 'To the one who came out of nowhere',
       secretDateLine: 'Will you go on a secret date with me?',
-      mainMessage: 'From the moment our eyes first met...',
-      reasons: ['Your laugh', 'You see beauty', 'Your heart'],
+      mainMessage: 'From the moment our eyes first met, my world has had a new hue. Every day with you feels like stepping into a dream painted in softer colors, warmer light.',
+      reasons: ['Your laugh is my favorite sound', 'You see beauty in the smallest things', 'Your heart is the gentlest place I know', 'You believe in me even when I doubt', 'Our quiet mornings are my sanctuary'],
       memoryPhotos: [],
       countdownDate: '2026-02-14T00:00:00',
-      theme: {
-        bgStart: '#e0c3fc',
-        bgMid: '#8ec5fc',
-        bgEnd: '#ffb6b9',
-        glassOpacity: 0.25,
-        primaryAccent: '#ff8fa3',
-        textDark: '#2d2d2d',
-        textLight: '#f5f5f5'
-      }
+      theme: { bgStart: '#e0c3fc', bgMid: '#8ec5fc', bgEnd: '#ffb6b9', glassOpacity: 0.25, primaryAccent: '#ff8fa3', textDark: '#2d2d2d', textLight: '#f5f5f5' }
     };
   }
   applyTheme();
@@ -64,71 +72,118 @@ function applyTheme() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Three.js Envelope Scene + Post-Processing
+// Bootstrap — choose 3D or CSS fallback
+// ═══════════════════════════════════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadConfig();
+  seedText();
+
+  // Show fallback envelope by default, hide if Three.js loads successfully
+  const fallbackEnv = document.getElementById('fallback-envelope');
+  fallbackEnv.classList.remove('hidden');
+  document.getElementById('fallbackInvitation').textContent = CONFIG.invitationLine;
+  document.getElementById('fallbackYourName').textContent = CONFIG.yourName;
+
+  initParticles();
+  startCountdown();
+
+  if (USE_THREE) {
+    // Hide fallback, init Three.js
+    fallbackEnv.classList.add('hidden');
+    initThree();
+    initScroll();
+    console.log('🚀 Using Three.js 3D envelope');
+  } else {
+    console.log('📱 Mobile/low-end device — CSS fallback envelope active');
+    initCSSEnvelope();
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CSS Fallback Envelope (mobile)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function initCSSEnvelope() {
+  const envelope = document.getElementById('fallback-envelope');
+
+  envelope.addEventListener('click', async () => {
+    if (envelopeOpenedCSS) return;
+    envelopeOpenedCSS = true;
+    envelope.classList.add('open');
+    document.body.classList.add('envelope-active');
+
+    if (audioEnabled) await playAmbientPiano();
+
+    // Typewriter on letter
+    await sleep(1400);
+    const letterText = envelope.querySelector('.fallback-letter');
+    let i = 0;
+    const text = CONFIG.invitationLine;
+    const interval = setInterval(() => {
+      letterText.textContent = text.substring(0, i + 1) + (i < text.length - 1 ? '|' : '');
+      i++;
+      if (i >= text.length) {
+        clearInterval(interval);
+        letterText.textContent = text; // final text
+        // Show response buttons
+        setTimeout(() => {
+          document.getElementById('responseSection').classList.remove('hidden');
+          const card = document.querySelector('#responseSection .glass-card');
+          gsap.to(card, { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' });
+          initButtons();
+        }, 600);
+      }
+    }, 30);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Three.js 3D Envelope (desktop)
 // ═══════════════════════════════════════════════════════════════════════════
 
 function initThree() {
   const container = document.getElementById('canvas-container');
   scene = new THREE.Scene();
-
-  // Camera — cinematic FOV
   camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
-  camera.position.set(0, 0, 7);
+  camera.position.set(0, 0, IS_MOBILE ? 9 : 7);
 
-  // Renderer with tone mapping for HDR bloom
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer = new THREE.WebGLRenderer({ antialias: !IS_MOBILE, alpha: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.shadowMap.enabled = true;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, IS_MOBILE ? 1.5 : 2));
+  renderer.shadowMap.enabled = !IS_MOBILE;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   container.appendChild(renderer.domElement);
 
-  // Post-processing: Bloom
-  composer = new THREE.EffectComposer(renderer);
-  const renderPass = new THREE.RenderPass(scene, camera);
-  composer.addPass(renderPass);
+  // Post-processing only on desktop
+  if (!IS_MOBILE) {
+    composer = new THREE.EffectComposer(renderer);
+    composer.addPass(new THREE.RenderPass(scene, camera));
+    bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.8, 0.4, 0.85);
+    composer.addPass(bloomPass);
+  }
 
-  bloomPass = new THREE.UnrealBloomPass(
-    new THREE.Vector2(window.innerWidth, window.innerHeight),
-    0.8,  // strength
-    0.4,  // radius
-    0.85  // threshold
-  );
-  composer.addPass(bloomPass);
-
-  // Lights — chiaroscuro drama
-  const ambient = new THREE.AmbientLight(0xffffff, 0.5);
-  scene.add(ambient);
-
-  const spot = new THREE.SpotLight(0xffffff, 1.2);
+  // Lights — fewer on mobile
+  scene.add(new THREE.AmbientLight(0xffffff, IS_MOBILE ? 0.7 : 0.5));
+  const spot = new THREE.SpotLight(0xffffff, IS_MOBILE ? 0.9 : 1.2);
   spot.position.set(6, 10, 8);
   spot.angle = Math.PI / 5;
   spot.penumbra = 0.4;
-  spot.castShadow = true;
-  spot.shadow.bias = -0.0002;
-  spot.shadow.mapSize.width = 2048;
-  spot.shadow.mapSize.height = 2048;
+  spot.castShadow = !IS_MOBILE;
+  if (!IS_MOBILE) { spot.shadow.bias = -0.0002; spot.shadow.mapSize.set(2048,2048); }
   scene.add(spot);
 
-  // Soft fill (pink rim light)
-  const fill = new THREE.PointLight(0xffb6b9, 0.4, 25);
-  fill.position.set(-4, 3, 5);
-  scene.add(fill);
+  if (!IS_MOBILE) {
+    const fill = new THREE.PointLight(0xffb6b9, 0.4, 25);
+    fill.position.set(-4, 3, 5);
+    scene.add(fill);
+    scene.fog = new THREE.Fog(0xe0c3fc, 10, 25);
+  }
 
-  // Warm backlight (golden hour feel)
-  const backLight = new THREE.PointLight(0xffeaa7, 0.3, 20);
-  backLight.position.set(0, -2, -6);
-  scene.add(backLight);
-
-  // Fog for depth
-  scene.fog = new THREE.Fog(0xe0c3fc, 10, 25);
-
-  // Build 3D envelope
   buildEnvelope();
 
-  // Raycaster
   raycaster = new THREE.Raycaster();
   mouse = new THREE.Vector2();
 
@@ -140,7 +195,7 @@ function initThree() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Envelope Geometry Builder
+// Envelope Builder (simplified geometry for mobile)
 // ═══════════════════════════════════════════════════════════════════════════
 
 function buildEnvelope() {
@@ -148,74 +203,53 @@ function buildEnvelope() {
   scene.add(envelopeGroup);
 
   const envelopeMat = new THREE.MeshStandardMaterial({
-    color: 0xfff8f0,
-    roughness: 0.55,
-    metalness: 0.05,
-    side: THREE.DoubleSide
+    color: 0xfff8f0, roughness: 0.55, metalness: 0.05, side: THREE.DoubleSide
   });
-
   const flapMat = new THREE.MeshStandardMaterial({
-    color: 0xfff0e6,
-    roughness: 0.5,
-    metalness: 0.05,
-    side: THREE.DoubleSide
+    color: 0xfff0e6, roughness: 0.5, metalness: 0.05, side: THREE.DoubleSide
   });
-
   const sealMat = new THREE.MeshStandardMaterial({
-    color: 0xff8fa3,
-    roughness: 0.3,
-    metalness: 0.15,
-    emissive: 0xff8fa3,
-    emissiveIntensity: 0.4
+    color: 0xff8fa3, roughness: 0.3, metalness: 0.15,
+    emissive: 0xff8fa3, emissiveIntensity: IS_MOBILE ? 0.2 : 0.4
   });
 
-  // 📄 Base — rectangular slab
-  const baseGeo = new THREE.BoxGeometry(2.4, 0.1, 1.8);
-  const base = new THREE.Mesh(baseGeo, envelopeMat);
+  // Base
+  const base = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.1, 1.8), envelopeMat);
   base.position.y = -0.05;
-  base.castShadow = true;
-  base.receiveShadow = true;
+  base.castShadow = !IS_MOBILE;
+  base.receiveShadow = !IS_MOBILE;
   envelopeGroup.add(base);
 
-  // � pocket front (two triangular faces)
+  // Front pocket (two triangles)
   const pocketGeo = new THREE.BufferGeometry();
-  pocketGeo.setAttribute('position', new THREE.Float32BufferAttribute([
-    0, -0.04, -0.9,
-    -1.2, -0.04, 0.9,
-    1.2, -0.04, 0.9
-  ], 3));
+  pocketGeo.setAttribute('position', new THREE.Float32BufferAttribute([0,-0.04,-0.9, -1.2,-0.04,0.9, 1.2,-0.04,0.9], 3));
   pocketGeo.setAttribute('uv', new THREE.Float32BufferAttribute([0.5,1, 0,0, 1,0], 2));
   pocketGeo.computeVertexNormals();
-  const pocket = new THREE.Mesh(pocketGeo, flapMat);
-  envelopeGroup.add(pocket);
+  envelopeGroup.add(new THREE.Mesh(pocketGeo, flapMat));
 
-  // 🔝 Top flap (pyramid)
-  const topFlapGeo = new THREE.ConeGeometry(1.25, 0.03, 4, 1, true);
-  const topFlap = new THREE.Mesh(topFlapGeo, flapMat);
+  // Flaps (simplified on mobile: no detailed cones)
+  const flapW = 1.25, flapH = IS_MOBILE ? 0.02 : 0.03;
+  const topFlap = new THREE.Mesh(new THREE.BoxGeometry(flapW*2, flapH, flapW*2), flapMat);
   topFlap.position.set(0, 0.02, -0.5);
   topFlap.rotation.x = Math.PI;
   topFlap.name = 'topFlap';
   envelopeGroup.add(topFlap);
 
-  // 🔽 Bottom flap (mirror)
-  const bottomFlapGeo = new THREE.ConeGeometry(1.25, 0.03, 4, 1, true);
-  const bottomFlap = new THREE.Mesh(bottomFlapGeo, flapMat);
+  const bottomFlap = new THREE.Mesh(new THREE.BoxGeometry(flapW*2, flapH, flapW*2), flapMat);
   bottomFlap.position.set(0, -0.02, 0.5);
-  bottomFlap.rotation.x = 0;
   bottomFlap.name = 'bottomFlap';
   envelopeGroup.add(bottomFlap);
 
-  // ✉️ Letter — canvas texture
-  const letterGeo = new THREE.PlaneGeometry(2.1, 1.5);
+  // Letter
   const letterTex = createLetterTexture('');
-  const letterMat = new THREE.MeshBasicMaterial({ map: letterTex, transparent: true, opacity: 0.98 });
-  letterMesh = new THREE.Mesh(letterGeo, letterMat);
+  const letterMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 1.5), new THREE.MeshBasicMaterial({ map: letterTex, transparent: true, opacity: 0.98 }));
   letterMesh.position.set(0, -0.55, 0.06);
   letterMesh.rotation.x = Math.PI / 2;
-  envelopeGroup.add(letterMesh);
   letterMesh.visible = false;
+  envelopeGroup.add(letterMesh);
+  envelopeGroup.userData.letterMesh = letterMesh;
 
-  // 🎀 3D Sealing wax heart (scaled up, emissive pop)
+  // 3D Heart seal
   const heartShape = new THREE.Shape();
   heartShape.moveTo(0, 0.3);
   heartShape.bezierCurveTo(0, 0.42, 0.2, 0.45, 0.26, 0.35);
@@ -224,34 +258,136 @@ function buildEnvelope() {
   heartShape.bezierCurveTo(0, 0.06, -0.2, -0.12, -0.26, 0);
   heartShape.bezierCurveTo(-0.32, 0.12, -0.32, 0.25, -0.26, 0.35);
   heartShape.bezierCurveTo(-0.2, 0.45, 0, 0.42, 0, 0.3);
-
-  const heartGeo = new THREE.ShapeGeometry(heartShape);
-  const heart = new THREE.Mesh(heartGeo, sealMat);
+  const heart = new THREE.Mesh(new THREE.ShapeGeometry(heartShape), sealMat);
   heart.position.set(0, 0.14, -0.78);
   heart.scale.set(0.65, 0.65, 0.65);
   envelopeGroup.add(heart);
 
-  // 🎬 Idle float + slow rotation (cinematic breathe)
-  gsap.to(envelopeGroup.position, {
-    y: 0.12,
-    duration: 3.2,
-    repeat: -1,
-    yoyo: true,
-    ease: 'sine.inOut'
-  });
-  gsap.to(envelopeGroup.rotation, {
-    y: 0.04,
-    duration: 6,
-    repeat: -1,
-    yoyo: true,
-    ease: 'sine.inOut'
-  });
+  // Idle animation — gentler on mobile
+  const dur = IS_MOBILE ? 4 : 3.2;
+  gsap.to(envelopeGroup.position, { y: 0.12, duration: dur, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+  gsap.to(envelopeGroup.rotation, { y: IS_MOBILE ? 0.02 : 0.04, duration: IS_MOBILE ? 8 : 6, repeat: -1, yoyo: true, ease: 'sine.inOut' });
 
-  gsap.to(bloomPass, 'strength', { value: 0.6, duration: 2, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+  if (!IS_MOBILE) {
+    gsap.to(bloomPass, 'strength', { value: 0.6, duration: 2, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Helpers: Text Sprite + Letter Texture
+// Mouse interaction (desktop)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function onMouseMove(event) {
+  if (IS_MOBILE) return;
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  if (!isEnvelopeOpen) {
+    gsap.to(envelopeGroup.rotation, { x: mouse.y * 0.04, y: mouse.x * 0.06, duration: 0.7, ease: 'power2.out' });
+  }
+}
+
+function onMouseClick(event) {
+  if (IS_MOBILE) return;
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(envelopeGroup.children, true);
+  if (intersects.length > 0 && !isEnvelopeOpen) openEnvelope();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Open Envelope — CSS fallback shares same init path but 3D path here
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function openEnvelope() {
+  if (isEnvelopeOpen) return;
+  isEnvelopeOpen = true;
+  document.body.classList.add('envelope-active');
+
+  if (audioEnabled) await playAmbientPiano();
+
+  const letterMesh = envelopeGroup.userData.letterMesh;
+  letterMesh.visible = true;
+
+  // Cinematic zoom (only on desktop)
+  if (!IS_MOBILE) {
+    gsap.to(camera.position, { z: 6.2, duration: 2.5, ease: 'power2.inOut' });
+  }
+
+  const topFlap = envelopeGroup.getObjectByName('topFlap');
+  const bottomFlap = envelopeGroup.getObjectByName('bottomFlap');
+
+  // Flaps open
+  gsap.to(topFlap.rotation, { x: IS_MOBILE ? -2.1 : -2.4, duration: IS_MOBILE ? 1.2 : 1.5, ease: 'power3.out' });
+  gsap.to(bottomFlap.rotation, { x: IS_MOBILE ? 2.1 : 2.4, duration: IS_MOBILE ? 1.2 : 1.5, ease: 'power3.out' });
+  gsap.to(envelopeGroup.position, { y: IS_MOBILE ? 0.15 : 0.18, duration: IS_MOBILE ? 1.2 : 1.5, ease: 'power3.out' });
+
+  await sleep(IS_MOBILE ? 1100 : 1400);
+  gsap.to(letterMesh.position, { y: 0.22, z: 0.15, duration: 1.0, ease: 'back.out(1.4)' });
+
+  await sleep(500);
+  typeOnLetterTexture(letterMesh, CONFIG.invitationLine, IS_MOBILE ? 18 : 24);
+
+  setTimeout(() => {
+    document.getElementById('responseSection').classList.remove('hidden');
+    const card = document.querySelector('#responseSection .glass-card');
+    gsap.to(card, { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' });
+    initButtons();
+  }, CONFIG.invitationLine.length * (IS_MOBILE ? 18 : 24) + 700);
+
+  // Hide sprite text
+  envelopeGroup.children.forEach(c => { if (c.isSprite) gsap.to(c.scale, { x: 0, y: 0, duration: 0.6 }); });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Typewriter on 3D letter texture
+// ═══════════════════════════════════════════════════════════════════════════
+
+function typeOnLetterTexture(mesh, text, charDelay = 24) {
+  const canvas = mesh.material.map.image;
+  const ctx = canvas.getContext('2d');
+
+  function redraw(sub) {
+    ctx.fillStyle = '#fffef7';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Grain
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const n = (Math.random() - 0.5) * 10;
+      img.data[i] = Math.min(255, img.data[i] + n);
+      img.data[i+1] = Math.min(255, img.data[i+1] + n);
+      img.data[i+2] = Math.min(255, img.data[i+2] + n);
+    }
+    ctx.putImageData(img, 0, 0);
+
+    ctx.font = '52px "Cormorant Garamond", Georgia, serif';
+    ctx.fillStyle = '#2d2d2d';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const words = sub.split(' ');
+    let line = '', y = 400, lineH = 80;
+    for (let n = 0; n < words.length; n++) {
+      const test = line + words[n] + ' ';
+      if (ctx.measureText(test).width > 1800 && n > 0) {
+        ctx.fillText(line, 1024, y);
+        line = words[n] + ' ';
+        y += lineH;
+      } else { line = test; }
+    }
+    ctx.fillText(line, 1024, y);
+    mesh.material.map.needsUpdate = true;
+  }
+
+  redraw('');
+  let i = 0;
+  const interval = setInterval(() => {
+    redraw(text.substring(0, i + 1));
+    i++;
+    if (i >= text.length) clearInterval(interval);
+  }, charDelay);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Helpers (sprites + letter texture)
 // ═══════════════════════════════════════════════════════════════════════════
 
 function createTextSprite(text, scale = 0.45) {
@@ -265,7 +401,6 @@ function createTextSprite(text, scale = 0.45) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, canvas.width / 2, canvas.height / 2);
-
   const tex = new THREE.CanvasTexture(canvas);
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
   const sprite = new THREE.Sprite(mat);
@@ -278,160 +413,38 @@ function createLetterTexture(text) {
   const canvas = document.createElement('canvas');
   canvas.width = 2048; canvas.height = 1536;
   const ctx = canvas.getContext('2d');
-
   ctx.fillStyle = '#fffef7';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Soft paper texture via noise
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  for (let i = 0; i < imgData.data.length; i += 4) {
-    const noise = (Math.random() - 0.5) * 12;
-    imgData.data[i] = Math.min(255, imgData.data[i] + noise);
-    imgData.data[i + 1] = Math.min(255, imgData.data[i + 1] + noise);
-    imgData.data[i + 2] = Math.min(255, imgData.data[i + 2] + noise);
+  // Grain noise
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const n = (Math.random() - 0.5) * 12;
+    img.data[i] = Math.min(255, img.data[i] + n);
+    img.data[i+1] = Math.min(255, img.data[i+1] + n);
+    img.data[i+2] = Math.min(255, img.data[i+2] + n);
   }
-  ctx.putImageData(imgData, 0, 0);
-
+  ctx.putImageData(img, 0, 0);
   ctx.font = '56px "Cormorant Garamond", Georgia, serif';
   ctx.fillStyle = '#2d2d2d';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-
-  // Word wrap
   const words = text.split(' ');
-  let line = '';
-  let y = 400;
-  const lineH = 90;
+  let line = '', y = 400, lineH = 80;
   for (let n = 0; n < words.length; n++) {
     const test = line + words[n] + ' ';
     if (ctx.measureText(test).width > 1800 && n > 0) {
       ctx.fillText(line, 1024, y);
-      line = words[n] + ' ';
-      y += lineH;
-    } else {
-      line = test;
-    }
+      line = words[n] + ' '; y += lineH;
+    } else { line = test; }
   }
   ctx.fillText(line, 1024, y);
-
   const tex = new THREE.CanvasTexture(canvas);
   tex.minFilter = THREE.LinearFilter;
   return tex;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Envelope Interaction with Cinematic Camera Choreography
-// ═══════════════════════════════════════════════════════════════════════════
-
-function onMouseMove(event) {
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-  if (!isEnvelopeOpen) {
-    const rotY = mouse.x * 0.06;
-    const rotX = mouse.y * 0.04;
-    gsap.to(envelopeGroup.rotation, { x: rotX, y: rotY, duration: 0.7, ease: 'power2.out' });
-  }
-}
-
-function onMouseClick(event) {
-  raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObjects(envelopeGroup.children, true);
-  if (intersects.length > 0 && !isEnvelopeOpen) openEnvelope();
-}
-
-async function openEnvelope() {
-  if (isEnvelopeOpen) return;
-  isEnvelopeOpen = true;
-  document.body.classList.add('envelope-active');
-
-  // 🎵 Ambient piano fades in on open
-  if (audioEnabled) await playAmbientPiano();
-
-  // Show letter mesh
-  letterMesh.visible = true;
-
-  // Cinematic: zoom camera slowly toward envelope
-  gsap.to(camera.position, { z: 6.2, duration: 2.5, ease: 'power2.inOut' });
-
-  // Flaps open (dramatic slower ease)
-  const topFlap = envelopeGroup.getObjectByName('topFlap');
-  const bottomFlap = envelopeGroup.getObjectByName('bottomFlap');
-  gsap.to(topFlap.rotation, { x: -2.4, duration: 1.5, ease: 'power3.out' });
-  gsap.to(bottomFlap.rotation, { x: 2.4, duration: 1.5, ease: 'power3.out' });
-  gsap.to(envelopeGroup.position, { y: 0.18, duration: 1.5, ease: 'power3.out' });
-
-  // Letter slides up with slight bounce
-  await sleep(1400);
-  gsap.to(letterMesh.position, { y: 0.22, z: 0.15, duration: 1.2, ease: 'back.out(1.4)' });
-
-  // ✍️ Typewriter on letter texture
-  await sleep(500);
-  typeOnLetterTexture(CONFIG.invitationLine, 24);
-
-  // Reveal response buttons after letter appears
-  setTimeout(() => {
-    document.getElementById('responseSection').classList.remove('hidden');
-    const card = document.querySelector('#responseSection .glass-card');
-    gsap.to(card, { opacity: 1, y: 0, duration: 1, ease: 'power2.out' });
-    initButtons();
-  }, CONFIG.invitationLine.length * 24 + 900);
-
-  // Hide floating text sprite
-  envelopeGroup.children.forEach(c => {
-    if (c.isSprite) gsap.to(c.scale, { x: 0, y: 0, duration: 0.6 });
-  });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Typewriter on Canvas Texture
-// ═══════════════════════════════════════════════════════════════════════════
-
-function typeOnLetterTexture(text, charDelay = 28) {
-  const canvas = letterMesh.material.map.image;
-  const ctx = canvas.getContext('2d');
-
-  function redraw(sub) {
-    ctx.fillStyle = '#fffef7';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    // Vellum grain
-    ctx.fillStyle = 'rgba(200,200,200,0.04)';
-    for (let i = 0; i < 20000; i++) ctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, 2, 2);
-
-    ctx.font = '52px "Cormorant Garamond", Georgia, serif';
-    ctx.fillStyle = '#2d2d2d';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    const words = sub.split(' ');
-    let line = '';
-    let y = 400;
-    const lineH = 80;
-    for (let n = 0; n < words.length; n++) {
-      const test = line + words[n] + ' ';
-      if (ctx.measureText(test).width > 1800 && n > 0) {
-        ctx.fillText(line, 1024, y);
-        line = words[n] + ' ';
-        y += lineH;
-      } else {
-        line = test;
-      }
-    }
-    ctx.fillText(line, 1024, y);
-    letterMesh.material.map.needsUpdate = true;
-  }
-
-  redraw('');
-  let i = 0;
-  const interval = setInterval(() => {
-    redraw(text.substring(0, i + 1));
-    i++;
-    if (i >= text.length) clearInterval(interval);
-  }, charDelay);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Ambient Piano (Web Audio API)
+// Ambient Audio
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function playAmbientPiano() {
@@ -440,33 +453,22 @@ async function playAmbientPiano() {
     audioGain = audioCtx.createGain();
     audioGain.connect(audioCtx.destination);
     audioGain.gain.setValueAtTime(0, audioCtx.currentTime);
-
-    // Try to fetch audio file; if not present, do nothing gracefully
     const resp = await fetch('assets/audio/ambient.mp3');
     if (!resp.ok) return;
-    const arrayBuffer = await resp.arrayBuffer();
-    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    const buf = await audioCtx.decodeAudioData(await resp.arrayBuffer());
     ambientSource = audioCtx.createBufferSource();
-    ambientSource.buffer = audioBuffer;
+    ambientSource.buffer = buf;
     ambientSource.loop = true;
     ambientSource.connect(audioGain);
     ambientSource.start(0);
-
-    // Fade in over 4 seconds
     audioGain.gain.linearRampToValueAtTime(0.35, audioCtx.currentTime + 4);
   } catch (e) {
-    console.log('Ambient audio unavailable:', e.message);
+    console.log('Audio unavailable:', e.message);
   }
 }
 
-function toggleAudio() {
-  if (!audioGain) return;
-  if (audioGain.gain.value > 0) audioGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
-  else audioGain.gain.linearRampToValueAtTime(0.35, audioCtx.currentTime + 0.5);
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
-// Button Dynamics (same as before)
+// Buttons
 // ═══════════════════════════════════════════════════════════════════════════
 
 function initButtons() {
@@ -478,14 +480,14 @@ function initButtons() {
   const countdownSection = document.getElementById('countdown');
 
   let clickCount = 0;
-  const noMessages = ["Are you sure?", "Think again!", "Don't be hasty...", "My heart will break 💔", "Pretty please?", "I'll be very sad!", "You know you want to! 😉", "Last chance to reconsider!", "...still waiting for that yes 💖"];
+  const msgs = ["Are you sure?", "Think again!", "Don't be hasty...", "My heart will break 💔", "Pretty please?", "I'll be very sad!", "You know you want to! 😉", "Last chance to reconsider!", "...still waiting for that yes 💖"];
 
   yesBtn.addEventListener('click', () => {
     yesBtn.classList.add('jumping');
     setTimeout(() => yesBtn.classList.remove('jumping'), 400);
     letterSection.classList.remove('hidden');
     gsap.to(letterSection, { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' });
-    simpleTypewriter(document.getElementById('letterText'), CONFIG.mainMessage);
+    simpleTypewriter(document.getElementById('letterText'), CONFIG.mainMessage, IS_MOBILE ? 18 : 28);
 
     setTimeout(() => {
       reasonsSection.classList.remove('hidden');
@@ -497,12 +499,12 @@ function initButtons() {
       memoriesSection.classList.remove('hidden');
       gsap.to(memoriesSection, { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' });
       renderGallery();
-    }, 1600);
+    }, IS_MOBILE ? 1200 : 1600);
 
     setTimeout(() => {
       countdownSection.classList.remove('hidden');
       gsap.to(countdownSection.querySelector('.bento-card'), { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' });
-    }, 2200);
+    }, IS_MOBILE ? 1800 : 2200);
   });
 
   noBtn.addEventListener('click', () => {
@@ -510,7 +512,7 @@ function initButtons() {
     const sz = parseFloat(getComputedStyle(yesBtn).fontSize);
     yesBtn.style.fontSize = `${sz + 1.2}px`;
     yesBtn.style.padding = `${0.85 + clickCount * 0.15}rem ${2 + clickCount * 0.3}rem`;
-    noBtn.textContent = noMessages[clickCount % noMessages.length];
+    noBtn.textContent = msgs[clickCount % msgs.length];
     const dx = Math.sin(clickCount) * 12, dy = Math.cos(clickCount) * -6;
     noBtn.style.transform = `translate(${dx}px, ${dy}px)`;
     if (clickCount > 6) tinyConfetti(noBtn);
@@ -541,20 +543,20 @@ function renderReasons() {
 
 function renderGallery() {
   const gallery = document.getElementById('gallery');
-  const rotations = ['1.2deg', '-1deg', '0.8deg', '-0.6deg'];
+  const rots = ['1.2deg', '-1deg', '0.8deg', '-0.6deg'];
   CONFIG.memoryPhotos.forEach((photo, idx) => {
     const fig = document.createElement('figure');
     fig.className = 'polaroid';
-    fig.style.setProperty('--rotation', rotations[idx%rotations.length]);
+    fig.style.setProperty('--rotation', rots[idx%rots.length]);
     fig.classList.add('fade-in');
     fig.innerHTML = `<img src="assets/${photo.file}" alt="${photo.caption}" onerror="this.style.display='none'"><figcaption>${photo.caption}</figcaption>`;
     gallery.appendChild(fig);
-    setTimeout(() => fig.classList.add('visible'), idx * 180);
+    setTimeout(() => fig.classList.add('visible'), idx * (IS_MOBILE ? 120 : 180));
   });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Countdown Timer
+// Countdown
 // ═══════════════════════════════════════════════════════════════════════════
 
 function startCountdown() {
@@ -571,7 +573,7 @@ function startCountdown() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Particle System (additive)
+// Particles
 // ═══════════════════════════════════════════════════════════════════════════
 
 function initParticles() {
@@ -581,27 +583,18 @@ function initParticles() {
   resize(); window.addEventListener('resize', resize);
 
   const particles = [];
-  const count = Math.min(48, window.innerWidth < 768 ? 30 : 48);
+  const count = IS_MOBILE ? 24 : 48;
 
   for (let i = 0; i < count; i++) {
-    particles.push({
-      x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-      radius: Math.random() * 20 + 6,
-      speedX: (Math.random() - 0.5) * 0.3,
-      speedY: (Math.random() - 0.5) * 0.3,
-      alpha: Math.random() * 0.28 + 0.1,
-      hue: Math.random() > 0.5 ? '255, 143, 163' : '142, 197, 252'
-    });
+    particles.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, radius: Math.random()*20+6, speedX: (Math.random()-0.5)*0.3, speedY: (Math.random()-0.5)*0.3, alpha: Math.random()*0.28+0.1, hue: Math.random()>0.5 ? '255,143,163' : '142,197,252' });
   }
 
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.globalCompositeOperation = 'lighter';
     particles.forEach(p => {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${p.hue}, ${p.alpha})`;
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(${p.hue}, ${p.alpha})`; ctx.fill();
       p.x += p.speedX; p.y += p.speedY;
       if (p.x < 0 || p.x > canvas.width) p.speedX *= -1;
       if (p.y < 0 || p.y > canvas.height) p.speedY *= -1;
@@ -612,25 +605,22 @@ function initParticles() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Lenis + GSAP ScrollTrigger
+// Lenis + GSAP ScrollTrigger (always works, even without Three.js)
 // ═══════════════════════════════════════════════════════════════════════════
 
 function initScroll() {
-  const lenis = new Lenis({ duration: 1.3, easing: t => Math.min(1, 1.001 - Math.pow(2, -10 * t)), smooth: true, smoothTouch: false, touchMultiplier: 2 });
+  const lenis = new Lenis({ duration: IS_MOBILE ? 1.0 : 1.3, easing: t => Math.min(1, 1.001 - Math.pow(2, -10*t)), smooth: true, smoothTouch: false, touchMultiplier: 2 });
   function raf(t) { lenis.raf(t); requestAnimationFrame(raf); }
   requestAnimationFrame(raf);
 
   gsap.registerPlugin(ScrollTrigger);
-
-  // Cards fade in on scroll
   document.querySelectorAll('.glass-card, .bento-card').forEach(card => {
-    gsap.to(card, { opacity: 1, y: 0, duration: 1.1, ease: 'power3.out', scrollTrigger: { trigger: card, start: 'top 85%' } });
+    gsap.to(card, { opacity: 1, y: 0, duration: IS_MOBILE ? 0.8 : 1.1, ease: 'power3.out', scrollTrigger: { trigger: card, start: 'top 85%' } });
   });
 
-  // Polaroids parallax stagger
   gsap.utils.toArray('.polaroid').forEach((pic, i) => {
     gsap.to(pic, { opacity: 1, y: 0, rotation: parseFloat(getComputedStyle(pic).getPropertyValue('--rotation')) || 0,
-      duration: 1.3, delay: i * 0.15, ease: 'power2.out', scrollTrigger: { trigger: pic, start: 'top 90%' } });
+      duration: IS_MOBILE ? 1.0 : 1.3, delay: i * (IS_MOBILE ? 0.1 : 0.15), ease: 'power2.out', scrollTrigger: { trigger: pic, start: 'top 90%' } });
   });
 }
 
@@ -660,15 +650,18 @@ function tinyConfetti(btn) {
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function onWindowResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  composer.setSize(window.innerWidth, window.innerHeight);
+  if (camera && renderer) {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    if (composer) composer.setSize(window.innerWidth, window.innerHeight);
+  }
 }
 
 function animate() {
   requestAnimationFrame(animate);
-  composer.render();
+  if (composer) composer.render();
+  else renderer.render(scene, camera);
 }
 
 function seedText() {
@@ -679,17 +672,11 @@ function seedText() {
   document.getElementById('footerHerName').textContent = CONFIG.herName;
   document.getElementById('tagline').textContent = CONFIG.tagline;
   document.getElementById('subText').textContent = CONFIG.tagline;
+  // Fallback CSS envelope
+  document.getElementById('fallbackInvitation').textContent = CONFIG.invitationLine;
+  document.getElementById('fallbackYourName').textContent = CONFIG.yourName;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Bootstrap
-// ═══════════════════════════════════════════════════════════════════════════
-
-document.addEventListener('DOMContentLoaded', async () => {
-  await loadConfig();
-  seedText();
-  initParticles();
-  initThree();
-  initScroll();
-  startCountdown();
-});
+// Expose for debugging
+window.CONFIG = CONFIG;
+window.toggleAudio = () => { if (!audioGain) return; audioGain.gain.value > 0 ? audioGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime+0.5) : audioGain.gain.linearRampToValueAtTime(0.35, audioCtx.currentTime+0.5); };

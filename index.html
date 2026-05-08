@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>A Secret Invitation for Candice 💖</title>
 
   <!-- Google Fonts -->
@@ -15,8 +15,22 @@
 </head>
 <body>
 
-  <!-- Three.js Container (3D envelope sits here) -->
+  <!-- Three.js Container (3D envelope) -->
   <div id="canvas-container"></div>
+
+  <!-- Fallback CSS Envelope (shown if WebGL fails) -->
+  <div id="fallback-envelope" class="fallback-envelope hidden">
+    <div class="fallback-envelope-body">
+      <div class="fallback-flap top"></div>
+      <div class="fallback-flap bottom"></div>
+      <div class="fallback-letter">
+        <p class="fallback-invitation" id="fallbackInvitation"></p>
+        <p class="fallback-signature">— <span id="fallbackYourName">Michael</span></p>
+      </div>
+    </div>
+    <div class="fallback-seal">💖</div>
+    <p class="tap-hint" id="fallbackHint">Tap to open...</p>
+  </div>
 
   <!-- Smooth scroll content wrapper -->
   <div id="smooth-wrapper">
@@ -25,11 +39,11 @@
       <!-- Ambient background -->
       <div class="ambient-bg"></div>
 
-      <!-- Floating particles -->
+      <!-- Floating particles (lighter weight for mobile) -->
       <canvas id="particles"></canvas>
 
       <main class="container">
-        <!-- Hero / Response Buttons (appears after envelope opens) -->
+        <!-- Hero / Response Buttons -->
         <section class="response-section hidden" id="responseSection">
           <div class="glass-card hero fade-in">
             <p class="tagline" id="tagline"></p>
@@ -44,14 +58,14 @@
           </div>
         </section>
 
-        <!-- Full-page letter (scroll view) -->
+        <!-- Full-page letter -->
         <section id="loveLetter" class="glass-card letter bento-card hidden">
           <h2 class="section-title">A Letter for You</h2>
           <div class="typewriter" id="letterText"></div>
           <p class="signature">— <span id="yourNameSign">Michael</span></p>
         </section>
 
-        <!-- Reasons grid — bento style -->
+        <!-- Reasons grid -->
         <section id="reasons" class="bento-grid hidden">
           <div class="glass-card bento-card">
             <h2 class="section-title">Why I Adore You</h2>
@@ -59,13 +73,13 @@
           </div>
         </section>
 
-        <!-- Polaroid memory gallery — parallax scroll -->
+        <!-- Polaroid memory gallery -->
         <section id="memories" class="glass-card hidden">
           <h2 class="section-title">Our Precious Moments</h2>
           <div class="polaroid-gallery" id="gallery"></div>
         </section>
 
-        <!-- Countdown — bento card -->
+        <!-- Countdown -->
         <section id="countdown" class="bento-grid hidden">
           <div class="glass-card bento-card">
             <h2 class="section-title">Counting the Heartbeats</h2>
@@ -82,25 +96,22 @@
     </div>
   </div>
 
-  <!-- Audio controls (hidden until needed) -->
+  <!-- Audio controls -->
   <audio id="ambient-audio" loop preload="auto" style="display:none">
-    <!-- Placeholder: put your piano track at assets/audio/ambient.mp3 -->
     <source src="assets/audio/ambient.mp3" type="audio/mpeg">
   </audio>
 
   <!-- Scripts -->
-  <!-- Three.js -->
+  <!-- Three.js + Post-processing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <!-- Three.js Post Processing -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/DotScreenShader.js"></script>
+
   <!-- GSAP + ScrollTrigger -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
   <!-- Lenis smooth scroll -->
   <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@2.0.0/bundled/lenis.min.js"></script>
 
