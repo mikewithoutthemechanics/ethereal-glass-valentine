@@ -438,10 +438,20 @@ async function openEnvelope() {
   typeOnLetterTexture(letter, CONFIG.invitationLine, IS_MOBILE ? 18 : 24);
 
   setTimeout(() => {
-    document.getElementById('responseSection').classList.remove('hidden');
-    const card = document.querySelector('#responseSection .glass-card');
-    gsap.to(card, { opacity: 1, y: 0, duration: 0.9, ease: 'power2.out' });
-    initButtons();
+    // 1️⃣ Show photos gallery FIRST (immediately after envelope opens)
+    const memSection = document.getElementById('memories');
+    memSection.classList.remove('hidden');
+    gsap.to(memSection, { opacity: 1, y: 0, duration: 0.9, ease: 'power2.out' });
+    renderGallery();
+
+    // 2️⃣ Then show response buttons
+    setTimeout(() => {
+      document.getElementById('responseSection').classList.remove('hidden');
+      const card = document.querySelector('#responseSection .glass-card');
+      gsap.to(card, { opacity: 1, y: 0, duration: 0.9, ease: 'power2.out' });
+      initButtons();
+    }, 600);
+
     // Hide the floating text sprite
     envelopeGroup.children.forEach(c => { if (c.isSprite) gsap.to(c.scale, { x: 0, y: 0, duration: 0.5 }); });
   }, CONFIG.invitationLine.length * (IS_MOBILE ? 18 : 24) + 800);
