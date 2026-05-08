@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>For Candice 💖</title>
+  <title>A Secret Invitation for Candice 💖</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
@@ -17,26 +17,48 @@
   <div class="ambient-bg"></div>
 
   <main class="container">
-    <!-- Hero glass card -->
-    <section class="glass-card hero fade-in">
-      <p class="tagline" id="tagline"></p>
-      <h1 class="hero-title">
-        Will you be my Valentine, <span id="herName">Candice</span>?
-      </h1>
-
-      <div class="button-group">
-        <button id="yesBtn" class="btn btn-yes">Yes, absolutely! 💖</button>
-        <button id="noBtn" class="btn btn-no">No</button>
+    <!-- ✉️ Envelope Hero — click to open -->
+    <section class="hero-envelope-wrapper" id="heroSection">
+      <div class="envelope-container" id="envelope">
+        <!-- Envelope body -->
+        <div class="envelope-body">
+          <div class="envelope-flap top"></div>
+          <div class="envelope-flap bottom"></div>
+          <!-- Letter inside (hidden until open) -->
+          <div class="letter-inside" id="letterInside">
+            <div class="letter-paper">
+              <p class="invitation-text" id="invitationText"></p>
+              <p class="signature-inside">— <span id="yourNameInLetter">Michael</span></p>
+            </div>
+          </div>
+        </div>
+        <!-- Sealing wax heart -->
+        <div class="seal" id="seal">💖</div>
+        <!-- Hover hint -->
+        <p class="tap-hint" id="tapHint">Tap the envelope to open...</p>
       </div>
+    </section>
 
-      <p class="sub-text" id="subText"></p>
+    <!-- 💝 Response Buttons (hidden until letter opens) -->
+    <section class="response-section hidden" id="responseSection">
+      <div class="glass-card hero fade-in">
+        <p class="tagline" id="tagline"></p>
+        <h1 class="hero-title">
+          Will you be my Valentine, <span id="herName">Candice</span>?
+        </h1>
+        <div class="button-group">
+          <button id="yesBtn" class="btn btn-yes">Yes, absolutely! 💖</button>
+          <button id="noBtn" class="btn btn-no">No</button>
+        </div>
+        <p class="sub-text" id="subText"></p>
+      </div>
     </section>
 
     <!-- Love letter (revealed on Yes) -->
     <section id="loveLetter" class="glass-card letter hidden">
       <h2 class="section-title">A Letter for You</h2>
       <div class="typewriter" id="letterText"></div>
-      <p class="signature">— <span id="yourName">Michael</span></p>
+      <p class="signature">— <span id="yourNameSign">Michael</span></p>
     </section>
 
     <!-- Reasons I Love You -->

@@ -1,7 +1,7 @@
 /**
  * Ethereal Glass Valentine — Interactive Engine
  * A romantic webapp experience with glassmorphic UI, particle effects,
- * typewriter animations, and playful button dynamics.
+ * envelope opening sequence, typewriter animations, and playful button dynamics.
  */
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -19,6 +19,7 @@ async function loadConfig() {
       herName: 'Candice',
       yourName: 'Michael',
       tagline: 'A digital love letter, crafted with glass and light.',
+      invitationLine: 'Will you go on a secret date with me?',
       mainMessage: 'From the moment our eyes first met, my world has had a new hue. Every day with you feels like stepping into a dream painted in softer colors, warmer light. This is a small piece of my heart, rendered in glass and light — because you deserve something as beautiful as the love you\'ve given me.',
       reasons: [
         'Your laugh is my favorite sound',
@@ -61,8 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
   seedText();
   initParticles();
-  initButtons();
-  revealSectionsSequentially();
+  initEnvelope();
   startCountdown();
 });
 
@@ -73,9 +73,46 @@ document.addEventListener('DOMContentLoaded', async () => {
 function seedText() {
   document.getElementById('herName').textContent = CONFIG.herName;
   document.getElementById('yourName').textContent = CONFIG.yourName;
+  document.getElementById('yourNameInLetter').textContent = CONFIG.yourName;
+  document.getElementById('yourNameSign').textContent = CONFIG.yourName;
   document.getElementById('footerHerName').textContent = CONFIG.herName;
   document.getElementById('tagline').textContent = CONFIG.tagline;
   document.getElementById('subText').textContent = CONFIG.tagline;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Envelope Opening Sequence
+// ═══════════════════════════════════════════════════════════════════════════
+
+function initEnvelope() {
+  const envelopeContainer = document.getElementById('envelope');
+  const envelopeBody = envelopeContainer.querySelector('.envelope-body');
+  const responseSection = document.getElementById('responseSection');
+  const invitationText = document.getElementById('invitationText');
+
+  envelopeContainer.addEventListener('click', async () => {
+    if (envelopeContainer.classList.contains('opened')) return;
+
+    // Lock envelope
+    envelopeContainer.classList.add('opened');
+    envelopeBody.classList.add('open');
+
+    // After letter emerges, type the invitation
+    await sleep(1200);
+    typeWriter(invitationText, CONFIG.invitationLine, 28);
+
+    // After typewriter finishes, reveal buttons
+    setTimeout(() => {
+      responseSection.classList.remove('hidden');
+      const heroCard = responseSection.querySelector('.glass-card');
+      heroCard.classList.add('fade-in');
+      initButtons(); // attach Yes/No listeners
+    }, 800 + CONFIG.invitationLine.length * 28 + 300);
+  });
+}
+
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -156,7 +193,7 @@ function initButtons() {
 // Typewriter Effect
 // ═══════════════════════════════════════════════════════════════════════════
 
-function typeWriter(el, text, speed = 22) {
+function typeWriter(el, text, speed = 28) {
   el.textContent = '';
   let i = 0;
   const interval = setInterval(() => {
@@ -251,17 +288,17 @@ function initParticles() {
   window.addEventListener('resize', resize);
 
   const particles = [];
-  const count = 36;
+  const count = 42;
 
   for (let i = 0; i < count; i++) {
     particles.push({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
-      radius: Math.random() * 18 + 6,
-      speedX: (Math.random() - 0.5) * 0.4,
-      speedY: (Math.random() - 0.5) * 0.4,
-      alpha: Math.random() * 0.35 + 0.1,
-      hue: Math.random() > 0.5 ? '255, 143, 163' : '142, 197, 252' // coral or sky
+      radius: Math.random() * 22 + 8,
+      speedX: (Math.random() - 0.5) * 0.35,
+      speedY: (Math.random() - 0.5) * 0.35,
+      alpha: Math.random() * 0.32 + 0.12,
+      hue: Math.random() > 0.5 ? '255, 143, 163' : '142, 197, 252'
     });
   }
 
@@ -274,11 +311,9 @@ function initParticles() {
       ctx.fillStyle = `rgba(${p.hue}, ${p.alpha})`;
       ctx.fill();
 
-      // drift
       p.x += p.speedX;
       p.y += p.speedY;
 
-      // gentle bounce off edges
       if (p.x < 0 || p.x > canvas.width) p.speedX *= -1;
       if (p.y < 0 || p.y > canvas.height) p.speedY *= -1;
     });
@@ -294,7 +329,6 @@ function initParticles() {
 
 function tinyConfetti(btn) {
   const rect = btn.getBoundingClientRect();
-  // Create a temporary canvas overlay
   const c = document.createElement('canvas');
   c.style.position = 'fixed';
   c.style.left = `${rect.left}px`;
@@ -323,7 +357,7 @@ function tinyConfetti(btn) {
     particles.forEach(p => {
       p.x += p.vx;
       p.y += p.vy;
-      p.vy += 0.15; // gravity
+      p.vy += 0.15;
       p.life -= 0.02;
       ctx.globalAlpha = p.life;
       ctx.fillStyle = p.color;
@@ -336,20 +370,7 @@ function tinyConfetti(btn) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Section reveal sequence (staggered fade-ins)
+// Debug
 // ═══════════════════════════════════════════════════════════════════════════
 
-function revealSectionsSequentially() {
-  // Initially hide sections that require clicking Yes
-  document.getElementById('loveLetter').classList.add('hidden');
-  document.getElementById('reasons').classList.add('hidden');
-  document.getElementById('memories').classList.add('hidden');
-  document.getElementById('countdown').classList.add('hidden');
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Debug / Development helpers
-// ═══════════════════════════════════════════════════════════════════════════
-
-// Expose config globally for console tweaking
 window.CONFIG = CONFIG;
