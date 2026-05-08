@@ -1,0 +1,9 @@
+[build]
+  # No build step — this is pure static HTML/CSS/JS
+  publish = "."
+
+# Optional: redirects for clean URLs if you add more pages later
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

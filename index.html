@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>For Candice 💖</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Particle canvas for floating light orbs -->
+  <canvas id="particles"></canvas>
+
+  <!-- Ambient animated gradient background -->
+  <div class="ambient-bg"></div>
+
+  <main class="container">
+    <!-- Hero glass card -->
+    <section class="glass-card hero fade-in">
+      <p class="tagline" id="tagline"></p>
+      <h1 class="hero-title">
+        Will you be my Valentine, <span id="herName">Candice</span>?
+      </h1>
+
+      <div class="button-group">
+        <button id="yesBtn" class="btn btn-yes">Yes, absolutely! 💖</button>
+        <button id="noBtn" class="btn btn-no">No</button>
+      </div>
+
+      <p class="sub-text" id="subText"></p>
+    </section>
+
+    <!-- Love letter (revealed on Yes) -->
+    <section id="loveLetter" class="glass-card letter hidden">
+      <h2 class="section-title">A Letter for You</h2>
+      <div class="typewriter" id="letterText"></div>
+      <p class="signature">— <span id="yourName">Michael</span></p>
+    </section>
+
+    <!-- Reasons I Love You -->
+    <section id="reasons" class="glass-card hidden">
+      <h2 class="section-title">Why I Adore You</h2>
+      <div class="reasons-grid" id="reasonsGrid"></div>
+    </section>
+
+    <!-- Memory timeline (Polaroids) -->
+    <section id="memories" class="glass-card hidden">
+      <h2 class="section-title">Our Precious Moments</h2>
+      <div class="polaroid-gallery" id="gallery"></div>
+    </section>
+
+    <!-- Countdown -->
+    <section id="countdown" class="glass-card hidden">
+      <h2 class="section-title">Counting the Heartbeats</h2>
+      <div class="timer" id="timer">Loading...</div>
+      <p class="note">Until we celebrate together 🕰️</p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Made with glass and light, for <span id="footerHerName">Candice</span>.</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

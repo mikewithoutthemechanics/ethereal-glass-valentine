@@ -1,0 +1,29 @@
+{
+  "herName": "Candice",
+  "yourName": "Michael",
+  "tagline": "A digital love letter, crafted with glass and light.",
+  "mainMessage": "From the moment our eyes first met, my world has had a new hue. Every day with you feels like stepping into a dream painted in softer colors, warmer light. This is a small piece of my heart, rendered in glass and light — because you deserve something as beautiful as the love you've given me.",
+  "reasons": [
+    "Your laugh is my favorite sound",
+    "You see beauty in the smallest things",
+    "Your heart is the gentlest place I know",
+    "You believe in me even when I doubt",
+    "Our quiet mornings are my sanctuary"
+  ],
+  "memoryPhotos": [
+    { "caption": "You, glowing", "file": "candice1.jpg" },
+    { "caption": "That smile I love", "file": "candice2.jpg" },
+    { "caption": "Our moment", "file": "candice3.jpg" },
+    { "caption": "Perfect as always", "file": "candice4.jpg" }
+  ],
+  "countdownDate": "2026-02-14T00:00:00",
+  "theme": {
+    "bgStart": "#e0c3fc",
+    "bgMid": "#8ec5fc",
+    "bgEnd": "#ffb6b9",
+    "glassOpacity": 0.25,
+    "primaryAccent": "#ff8fa3",
+    "textDark": "#2d2d2d",
+    "textLight": "#f5f5f5"
+  }
+}
