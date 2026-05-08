@@ -665,16 +665,17 @@ function animate() {
 }
 
 function seedText() {
-  document.getElementById('herName').textContent = CONFIG.herName;
-  document.getElementById('yourName').textContent = CONFIG.yourName;
-  document.getElementById('yourNameInLetter').textContent = CONFIG.yourName;
-  document.getElementById('yourNameSign').textContent = CONFIG.yourName;
-  document.getElementById('footerHerName').textContent = CONFIG.herName;
-  document.getElementById('tagline').textContent = CONFIG.tagline;
-  document.getElementById('subText').textContent = CONFIG.tagline;
+  const safeSet = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  safeSet('herName', CONFIG.herName);
+  safeSet('yourName', CONFIG.yourName);
+  safeSet('yourNameInLetter', CONFIG.yourName);
+  safeSet('yourNameSign', CONFIG.yourName);
+  safeSet('footerHerName', CONFIG.herName);
+  safeSet('tagline', CONFIG.tagline);
+  safeSet('subText', CONFIG.tagline);
   // Fallback CSS envelope
-  document.getElementById('fallbackInvitation').textContent = CONFIG.invitationLine;
-  document.getElementById('fallbackYourName').textContent = CONFIG.yourName;
+  safeSet('fallbackInvitation', CONFIG.invitationLine);
+  safeSet('fallbackYourName', CONFIG.yourName);
 }
 
 // Expose for debugging
