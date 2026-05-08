@@ -9,7 +9,7 @@ const USE_THREE = !IS_MOBILE && (() => {
 })();
 
 let CONFIG, scene, camera, renderer, composer, bloomPass, envelopeGroup, letterMesh;
-let isEnvelopeOpen = false, raycaster, mouse, clock = new THREE.Clock();
+let isEnvelopeOpen = false, raycaster, mouse, clock;
 let audioCtx, audioGain, ambientSource, audioEnabled = true;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -88,7 +88,7 @@ function initCSSEnvelope() {
     if (audioEnabled) await playAmbientPiano();
 
     await sleep(1400);
-    const letter = env.querySelector('.fallback-letter');
+    const letter = env.querySelector('#fallbackInvitation');
     let i = 0, text = CONFIG.invitationLine;
     const int = setInterval(() => {
       letter.textContent = text.substring(0, i+1) + (i < text.length-1 ? '|' : '');
@@ -543,7 +543,15 @@ function renderReasons() {
     const div = document.createElement('div');
     div.className = 'reason-item fade-in';
     div.innerHTML = `<span class="reason-icon">${hearts[i%hearts.length]}</span><span>${r}</span>`;
+    div.style.opacity = '0';
+    div.style.transform = 'translateY(30px)';
     grid.appendChild(div);
+    gsap.to(div, {
+      opacity: 1, y: 0,
+      duration: 0.7,
+      delay: i * 0.15 + 0.3,
+      ease: 'power2.out'
+    });
   });
 }
 
@@ -651,8 +659,9 @@ function initScroll() {
 
   gsap.registerPlugin(ScrollTrigger);
 
-  // Cinematic scroll reveals
-  document.querySelectorAll('.glass-card, .bento-card').forEach(card => {
+  // Cinematic scroll reveals — only target elements that aren't hidden
+  const candidates = document.querySelectorAll('.glass-card:not(.hidden), .bento-card:not(.hidden)');
+  candidates.forEach(card => {
     gsap.to(card, {
       opacity: 1, y: 0,
       duration: IS_MOBILE ? 1.0 : 1.4,
@@ -662,7 +671,7 @@ function initScroll() {
   });
 
   // Polaroid photos with parallax tilt
-  gsap.utils.toArray('.polaroid').forEach((pic, i) => {
+  gsap.utils.toArray('.polaroid.visible').forEach((pic, i) => {
     gsap.to(pic, {
       opacity: 1, y: 0,
       rotation: parseFloat(getComputedStyle(pic).getPropertyValue('--rotation')) || 0,

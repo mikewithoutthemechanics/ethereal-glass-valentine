@@ -24,6 +24,9 @@
    Cinematic film grain overlay
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* Global hidden utility — used by JS to toggle sections */
+.hidden { display: none !important; }
+
 #grain-canvas {
   position: fixed;
   inset: 0;
@@ -150,7 +153,8 @@ body.three-active #canvas-container { pointer-events: auto; cursor: pointer; }
   background: linear-gradient(135deg, var(--text-dark) 0%, #1a1a1a 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  text-shadow: 0 4px 20px rgba(45, 45, 45, 0.15);
+  /* text-shadow doesn't work with background-clip — use filter instead */
+  filter: drop-shadow(0 4px 12px rgba(45, 45, 45, 0.25));
 }
 
 .section-title {
@@ -254,6 +258,11 @@ body.three-active #canvas-container { pointer-events: auto; cursor: pointer; }
   transform: translateY(-3px) scale(1.02);
   background: rgba(255,255,255,0.35);
   box-shadow: 0 12px 32px rgba(0,0,0,0.1);
+}
+
+/* Smooth scroll sections — hidden until scrolled into view via GSAP */
+section.hidden {
+  display: none !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -379,6 +388,7 @@ body.three-active #canvas-container { pointer-events: auto; cursor: pointer; }
 .bento-card {
   opacity: 0;
   transform: translateY(80px);
+  transition: opacity 1.2s cubic-bezier(0.22, 1, 0.36, 1), transform 1.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .bento-card.visible {
@@ -583,14 +593,16 @@ body.three-active #canvas-container { pointer-events: auto; cursor: pointer; }
 /* Wax seal */
 .fallback-seal {
   position: absolute;
-  top: -54px; left: 50%;
+  top: -30px; left: 50%;
   transform: translateX(-50%) scale(0) rotate(-12deg);
   font-size: 2.6rem;
   filter: drop-shadow(0 4px 10px rgba(255,143,163,0.6));
   transition: transform 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) 0.75s;
+  z-index: 5;
+  pointer-events: none;
 }
 
-.fallback-envelope.open + .fallback-seal {
+.fallback-envelope.open .fallback-seal {
   transform: translateX(-50%) scale(1.05) rotate(0deg);
 }
 
@@ -620,4 +632,7 @@ body.three-active #canvas-container { pointer-events: auto; cursor: pointer; }
 }
 
 /* Hide fallback only when Three.js takes over */
-body.three-active #fallback-envelope { display: none; }
+body.three-active #fallback-envelope,
+body.three-active .fallback-hint {
+  display: none !important;
+}
