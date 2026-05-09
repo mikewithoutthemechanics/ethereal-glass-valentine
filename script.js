@@ -128,9 +128,25 @@ function initCSSEnvelope() {
           gsap.to(document.querySelector('#responseSection .glass-card'), { opacity: 1, y: 0, duration: 0.9, ease: 'power2.out' });
           window.dispatchEvent(new Event('scrollTriggerReveal'));
           initButtons();
+
+          // Dismiss envelope so content is scrollable
+          setTimeout(() => {
+            env.classList.add('dismissed');
+            const hint = document.getElementById('fallbackHint');
+            if (hint) hint.style.display = 'none';
+          }, 1200);
         }, 700);
       }
     }, 28);
+  });
+
+  // Dismiss envelope on direct tap as well
+  env.addEventListener('click', () => {
+    if (env.classList.contains('opened') && !env.classList.contains('dismissed')) {
+      env.classList.add('dismissed');
+      const hint = document.getElementById('fallbackHint');
+      if (hint) hint.style.display = 'none';
+    }
   });
 }
 

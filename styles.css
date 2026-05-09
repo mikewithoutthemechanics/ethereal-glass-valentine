@@ -619,6 +619,18 @@ section.hidden {
 
 .fallback-envelope.open ~ .fallback-hint { display: none; }
 
+/* After CSS envelope opens + letter shown, fade it out so content is reachable */
+.fallback-envelope.opened {
+  pointer-events: none;
+  transition: opacity 1s ease 2s;
+  opacity: 0;
+}
+
+/* When user starts scrolling, fully remove envelope from flow */
+.fallback-envelope.dismissed {
+  display: none !important;
+}
+
 @keyframes hintPulse {
   0%, 100% { opacity: 0.5; transform: translateY(0); }
   50% { opacity: 0.9; transform: translateY(-4px); }
