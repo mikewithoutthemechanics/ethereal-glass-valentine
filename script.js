@@ -34,6 +34,17 @@ function applyTheme() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Minimal smooth scroll polyfill (if Lenis CDN fails)
+function initBasicScroll() {
+  let ticking = false;
+  window.addEventListener("wheel", (e) => {
+    if (ticking) return;
+    ticking = true;
+    window.scrollBy({ top: (e.deltaY > 0 ? 1 : -1) * 80, behavior: "smooth" });
+    setTimeout(() => ticking = false, 80);
+  }, { passive: true });
+}
+
 // Bootstrap
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -50,7 +61,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (USE_THREE) {
     try {
       initThree();
-      initScroll();
       threeStarted = true;
       fallbackEnv.classList.add('hidden');
       document.body.classList.add('three-active');
