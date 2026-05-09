@@ -9,7 +9,7 @@ const USE_THREE = !IS_MOBILE && (() => {
 })();
 
 let CONFIG, scene, camera, renderer, composer, bloomPass, envelopeGroup, letterMesh;
-let isEnvelopeOpen = false, raycaster, mouse, clock;
+let isEnvelopeOpen = false, raycaster, mouse, clock, scrollTimeout;
 let audioCtx, audioGain, ambientSource, audioEnabled = true;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -61,6 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 1) Scroll system — start early, works everywhere
   try {
     initScroll();
+    document.body.classList.add('smooth-scroll');
   } catch (e) {
     console.warn('Lenis failed, using basic scroll:', e.message);
     initBasicScroll();
@@ -116,8 +117,16 @@ function initCSSEnvelope() {
         clearInterval(int);
         letter.textContent = text;
         setTimeout(() => {
+          // Show photos FIRST (same order as Three.js path)
+          const mem = document.getElementById('memories');
+          mem.classList.remove('hidden');
+          gsap.to(mem, { opacity: 1, y: 0, duration: 1.0, ease: 'power2.out' });
+          renderGallery();
+
+          // Then buttons
           document.getElementById('responseSection').classList.remove('hidden');
           gsap.to(document.querySelector('#responseSection .glass-card'), { opacity: 1, y: 0, duration: 0.9, ease: 'power2.out' });
+          window.dispatchEvent(new Event('scrollTriggerReveal'));
           initButtons();
         }, 700);
       }
@@ -438,10 +447,14 @@ async function openEnvelope() {
     gsap.to(mem, { opacity: 1, y: 0, duration: 1.0, ease: 'power2.out' });
     renderGallery();
 
+    // Re-calculate scroll bounds after photos are revealed
+    if (typeof ScrollTrigger !== 'undefined') ScrollTrigger.refresh();
+
     setTimeout(() => {
       // Then buttons
       document.getElementById('responseSection').classList.remove('hidden');
       gsap.to(document.querySelector('#responseSection .glass-card'), { opacity: 1, y: 0, duration: 0.9, ease: 'power2.out' });
+      if (typeof ScrollTrigger !== 'undefined') ScrollTrigger.refresh();
       initButtons();
     }, 600);
 
@@ -678,19 +691,20 @@ function initScroll() {
 
   gsap.registerPlugin(ScrollTrigger);
 
-  // Cinematic scroll reveals — only target elements that aren't hidden
-  const candidates = document.querySelectorAll('.glass-card:not(.hidden), .bento-card:not(.hidden)');
+  // Cinematic scroll reveals — bind to all glass-cards/bento-cards regardless of hidden state
+  // hidden elements start at opacity:0/y:80 so GSAP animates them when scrolled into view
+  const candidates = document.querySelectorAll('.glass-card, .bento-card');
   candidates.forEach(card => {
     gsap.to(card, {
       opacity: 1, y: 0,
       duration: IS_MOBILE ? 1.0 : 1.4,
       ease: 'power3.out',
-      scrollTrigger: { trigger: card, start: 'top 80%', toggleActions: 'play none none reverse' }
+      scrollTrigger: { trigger: card, start: 'top 85%', toggleActions: 'play none none reverse' }
     });
   });
 
   // Polaroid photos with parallax tilt
-  gsap.utils.toArray('.polaroid.visible').forEach((pic, i) => {
+  gsap.utils.toArray('.polaroid').forEach((pic, i) => {
     gsap.to(pic, {
       opacity: 1, y: 0,
       rotation: parseFloat(getComputedStyle(pic).getPropertyValue('--rotation')) || 0,
@@ -700,6 +714,9 @@ function initScroll() {
       scrollTrigger: { trigger: pic, start: 'top 85%' }
     });
   });
+
+  // Re-calculate scroll bounds when new content is revealed
+  window.addEventListener('scrollTriggerReveal', () => { ScrollTrigger.refresh(); });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

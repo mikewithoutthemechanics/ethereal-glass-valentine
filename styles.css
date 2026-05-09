@@ -85,7 +85,7 @@ body.three-active #canvas-container { pointer-events: auto; cursor: pointer; }
    ═══════════════════════════════════════════════════════════════════════════ */
 
 #smooth-wrapper { position: relative; z-index: 1; }
-#smooth-content { overflow: hidden; }
+body.smooth-scroll #smooth-content { overflow: hidden; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Container — Bento layout
