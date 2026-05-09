@@ -45,7 +45,7 @@ function initBasicScroll() {
   }, { passive: true });
 }
 
-// Bootstrap
+// ★ Bootstrap — each subsystem isolated so failures don't cascade
 // ═══════════════════════════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -58,23 +58,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   const fallbackEnv = document.getElementById('fallback-envelope');
   let threeStarted = false;
 
+  // 1) Scroll system — start early, works everywhere
+  try {
+    initScroll();
+  } catch (e) {
+    console.warn('Lenis failed, using basic scroll:', e.message);
+    initBasicScroll();
+  }
+
+  // 2) Three.js — independent of scroll
   if (USE_THREE) {
     try {
       initThree();
       threeStarted = true;
       fallbackEnv.classList.add('hidden');
       document.body.classList.add('three-active');
-      console.log('🚀 Three.js cinematic mode');
-    } catch (e) { console.warn('Three.js failed:', e); }
+      console.log('✈️ Three.js cinematic mode');
+    } catch (e) { console.warn('Three.js failed:', e.message); }
   }
 
+  // 3) CSS fallback — only if Three.js didn't start
   if (!threeStarted) {
-    console.log('📱 CSS fallback envelope');
+    console.log('★⁃ CSS fallback envelope');
     initCSSEnvelope();
   }
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
 // Text injection (safe)
 // ═══════════════════════════════════════════════════════════════════════════
 
