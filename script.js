@@ -81,7 +81,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 3) CSS fallback — only if Three.js didn't start
   if (!threeStarted) {
     console.log('★⁃ CSS fallback envelope');
+    fallbackEnv.classList.add('envelope-visible');
     initCSSEnvelope();
+  } else {
+    fallbackEnv.classList.add('hidden');
   }
 });
 

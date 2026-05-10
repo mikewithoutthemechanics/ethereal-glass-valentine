@@ -617,7 +617,7 @@ section.hidden {
   letter-spacing: 0.08em;
 }
 
-.fallback-envelope.open ~ .fallback-hint { display: none; }
+
 
 /* After CSS envelope opens + letter shown, fade it out so content is reachable */
 .fallback-envelope.opened {
@@ -643,7 +643,34 @@ section.hidden {
   }
 }
 
-/* Hide fallback only when Three.js takes over */
+.fallback-envelope {
+  display: none;
+}
+
+.fallback-envelope.envelope-visible {
+  display: block;
+  opacity: 0;
+  pointer-events: none;
+  animation: envelopeFadeIn 0.6s ease 0.3s forwards;
+}
+
+@keyframes envelopeFadeIn {
+  to { opacity: 1; pointer-events: auto; }
+}
+
+/* After envelope opens, fade out and remove */
+.fallback-envelope.opened {
+  pointer-events: none;
+  animation: envelopeFadeOut 0.8s ease 0.5s forwards;
+}
+
+@keyframes envelopeFadeOut {
+  to { opacity: 0; transform: translate(-50%, -50%) scale(0.92) rotateX(5deg); }
+}
+
+.fallback-envelope.opened ~ .fallback-hint { display: none; }
+
+/* Hide fallback when Three.js takes over */
 body.three-active #fallback-envelope,
 body.three-active .fallback-hint {
   display: none !important;
